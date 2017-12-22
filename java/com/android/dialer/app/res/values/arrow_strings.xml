@@ -74,4 +74,8 @@
     <string name="enable_post_call_title">Post call snackbar</string>
     <string name="enable_post_call_summary">Enable post call notifications at the bottom of screen</string>
 
+    <!-- proximity autoanswer feature -->
+    <string name="prox_auto_answer_incall_only_title">Auto answer</string>
+    <string name="prox_auto_answer_incall_only_summary">Use proximity sensor for autoanswer</string>
+
 </resources>

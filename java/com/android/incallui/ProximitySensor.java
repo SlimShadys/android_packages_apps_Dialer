@@ -30,6 +30,7 @@ import android.os.Trace;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.telecom.CallAudioState;
+import android.telecom.TelecomManager;
 import android.view.Display;
 import com.android.dialer.common.LogUtil;
 import com.android.incallui.InCallPresenter.InCallState;
@@ -40,7 +41,6 @@ import com.android.incallui.audiomode.AudioModeProvider.AudioModeListener;
 import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
 import com.android.dialer.app.settings.OtherSettingsFragment;
-import android.preference.PreferenceManager;
 
 /**
  * Class manages the proximity sensor for the in-call UI. We enable the proximity sensor while the
@@ -54,6 +54,8 @@ public class ProximitySensor
 
   private static final String TAG = ProximitySensor.class.getSimpleName();
   private static final String PREF_KEY_DISABLE_PROXI_SENSOR = "disable_proximity_sensor_key";
+  private static final String PREF_PROXIMITY_AUTO_ANSWER_INCALL_ONLY  = "proximity_auto_answer_incall_only";
+  private static final int SENSOR_SENSITIVITY = 4;
 
   private final PowerManager powerManager;
   private final PowerManager.WakeLock proximityWakeLock;
@@ -62,12 +64,15 @@ public class ProximitySensor
   private final AudioModeProvider audioModeProvider;
   private final AccelerometerListener accelerometerListener;
   private final ProximityDisplayListener displayListener;
+  private final TelecomManager telecomManager;
   private int orientation = AccelerometerListener.ORIENTATION_UNKNOWN;
   private boolean uiShowing = false;
   private boolean hasIncomingCall = false;
   private boolean isPhoneOffhook = false;
   private boolean isPhoneOutgoing = false;
+  private boolean isPhoneRinging = false;
   private boolean proximitySpeaker = false;
+  private boolean isProxSensorNear = false;
   private boolean isProxSensorFar = true;
   private int proxSpeakerDelay = 3000;
   private boolean dialpadVisible;
@@ -81,10 +86,11 @@ public class ProximitySensor
 
   private final Handler handler = new Handler();
   private final Runnable activateSpeaker = new Runnable() {
-    @Override
-    public void run() {
-      TelecomAdapter.getInstance().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
-    }
+	  
+  @Override
+  public void run() {
+        TelecomAdapter.getInstance().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
+      }
   };
 
   public ProximitySensor(
@@ -97,6 +103,8 @@ public class ProximitySensor
     final boolean mIsProximitySensorDisabled = mPrefs.getBoolean(PREF_KEY_DISABLE_PROXI_SENSOR, false);
 
     powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+    telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+
     mPrefs = PreferenceManager.getDefaultSharedPreferences(context);
     final boolean mIsProximitySensorDisabled = mPrefs.getBoolean(PREF_KEY_DISABLE_PROXI_SENSOR, false);
 
@@ -197,6 +205,8 @@ public class ProximitySensor
     }
 
     if (hasIncomingCall) {
+      updateProxRing();
+      answerProx(isProxSensorNear);
       updateProximitySensorMode();
     }
   }
@@ -215,9 +225,16 @@ public class ProximitySensor
       isProxSensorFar = false;
     } else {
       isProxSensorFar = true;
+      isProxSensorNear = false;
     }
 
+    if (event.values[0] <= SENSOR_SENSITIVITY ) {
+        isProxSensorNear = true;
+    }
+    Log.i(this, "Proximity sensor changed");
+
     setProxSpeaker(isProxSensorFar);
+    answerProx(isProxSensorNear);
   }
 
   @Override
@@ -344,7 +361,7 @@ public class ProximitySensor
         uiShowing,
         CallAudioState.audioRouteToString(audioRoute));
 
-    if ((isPhoneOffhook || hasIncomingCall) && !screenOnImmediately) {
+    if ((isPhoneOffhook || (hasIncomingCall && proxSpeakerIncallOnly())) && !screenOnImmediately) {
       LogUtil.v("ProximitySensor.updateProximitySensorMode", "turning on proximity sensor");
       // Phone is in use!  Arrange for the screen to turn off
       // automatically when the sensor detects a close object.
@@ -369,6 +386,29 @@ public class ProximitySensor
     }
   }
 
+  private void updateProxRing() {
+        if (sensorManager != null && proxSensor != null) {
+            if (hasIncomingCall) {
+                sensorManager.registerListener(this, proxSensor,
+                        SensorManager.SENSOR_DELAY_NORMAL);
+            } else {
+                sensorManager.unregisterListener(this);
+            }
+        }
+    }
+
+  private void answerProx(boolean isNear) {
+    final boolean proxIncallAnswPref =
+                mPrefs.getBoolean(PREF_PROXIMITY_AUTO_ANSWER_INCALL_ONLY, false);
+    if (isNear && telecomManager != null && !isScreenReallyOff() && proxIncallAnswPref) {
+      telecomManager.acceptRingingCall();
+    }
+  }
+
+  private boolean proxSpeakerIncallOnly() {
+    return mPrefs.getBoolean("proximity_auto_speaker_incall_only", false);
+  }
+
   private void setProxSpeaker(final boolean speaker) {
     // remove any pending audio changes scheduled
     handler.removeCallbacks(activateSpeaker);
@@ -376,8 +416,6 @@ public class ProximitySensor
     final int audioState = audioModeProvider.getAudioState().getRoute();
     final boolean isProxSpeakerEnabled =
         mPrefs.getBoolean("proximity_auto_speaker", false);
-    final boolean proxSpeakerIncallOnlyPref =
-        prefs.getBoolean("proximity_auto_speaker_incall_only", false);
     final int proxSpeakerDelay = Integer.valueOf(
         mPrefs.getString("proximity_auto_speaker_delay", "3000"));
 
@@ -393,10 +431,10 @@ public class ProximitySensor
 
         // if prox incall only is off, we set to speaker as long as phone
         // is off hook, ignoring whether or not the call state is outgoing
-        if (!proxSpeakerIncallOnlyPref
+        if (!proxSpeakerIncallOnly()
             // or if prox incall only is on, we have to check the call
             // state to decide if AudioState should be speaker
-            || (proxSpeakerIncallOnlyPref && !isPhoneOutgoing)) {
+            || (proxSpeakerIncallOnly() && !isPhoneOutgoing)) {
           handler.postDelayed(activateSpeaker, proxSpeakerDelay);
         }
       } else if (!speaker) {
