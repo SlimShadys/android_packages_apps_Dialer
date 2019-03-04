@@ -190,6 +190,7 @@ public class ProximitySensor
 
     if (hasOngoingCall && InCallState.OUTGOING == oldState) {
       setProxSpeaker(isProxSensorFar);
+      updateProximitySensorMode();
     }
 
     if (hasIncomingCall) {
