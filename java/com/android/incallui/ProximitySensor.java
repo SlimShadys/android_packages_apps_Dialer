@@ -341,7 +341,7 @@ public class ProximitySensor
         uiShowing,
         CallAudioState.audioRouteToString(audioRoute));
 
-    if ((isPhoneOffhook || hasIncomingCall) && !screenOnImmediately) {
+    if ((isPhoneOffhook || (hasIncomingCall && proxSpeakerIncallOnly())) && !screenOnImmediately) {
       LogUtil.v("ProximitySensor.updateProximitySensorMode", "turning on proximity sensor");
       // Phone is in use!  Arrange for the screen to turn off
       // automatically when the sensor detects a close object.
@@ -366,6 +366,10 @@ public class ProximitySensor
     }
   }
 
+  private boolean proxSpeakerIncallOnly() {
+    return prefs.getBoolean("proximity_auto_speaker_incall_only", false);
+  }
+
   private void setProxSpeaker(final boolean speaker) {
     // remove any pending audio changes scheduled
     handler.removeCallbacks(activateSpeaker);
@@ -373,8 +377,6 @@ public class ProximitySensor
     final int audioState = audioModeProvider.getAudioState().getRoute();
     final boolean isProxSpeakerEnabled =
         prefs.getBoolean("proximity_auto_speaker", false);
-    final boolean proxSpeakerIncallOnlyPref =
-        prefs.getBoolean("proximity_auto_speaker_incall_only", false);
     final int proxSpeakerDelay = Integer.valueOf(
         prefs.getString("proximity_auto_speaker_delay", "3000"));
 
@@ -390,10 +392,10 @@ public class ProximitySensor
 
         // if prox incall only is off, we set to speaker as long as phone
         // is off hook, ignoring whether or not the call state is outgoing
-        if (!proxSpeakerIncallOnlyPref
+        if (!proxSpeakerIncallOnly()
             // or if prox incall only is on, we have to check the call
             // state to decide if AudioState should be speaker
-            || (proxSpeakerIncallOnlyPref && !isPhoneOutgoing)) {
+            || (proxSpeakerIncallOnly() && !isPhoneOutgoing)) {
           handler.postDelayed(activateSpeaker, proxSpeakerDelay);
         }
       } else if (!speaker) {
