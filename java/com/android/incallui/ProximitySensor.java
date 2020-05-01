@@ -92,7 +92,6 @@ public class ProximitySensor
   private final Handler handlerAnswer = new Handler();
   private final Runnable activateSpeaker = new Runnable() {
 	  
-  @Override
       @Override
       public void run() {
             TelecomAdapter.getInstance().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
@@ -114,14 +113,12 @@ public class ProximitySensor
       @NonNull AccelerometerListener accelerometerListener) {
     Trace.beginSection("ProximitySensor.Constructor");
     this.context = context;
+	
     mPrefs = PreferenceManager.getDefaultSharedPreferences(context);
     final boolean mIsProximitySensorDisabled = mPrefs.getBoolean(PREF_KEY_DISABLE_PROXI_SENSOR, false);
 
     powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
     telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
-
-    mPrefs = PreferenceManager.getDefaultSharedPreferences(context);
-    final boolean mIsProximitySensorDisabled = mPrefs.getBoolean(PREF_KEY_DISABLE_PROXI_SENSOR, false);
 
     if (powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)
           && !mIsProximitySensorDisabled) {

@@ -75,13 +75,13 @@
     <string name="enable_post_call_summary">Enable post call notifications at the bottom of screen</string>
 
     <!-- Proximity autoanswer feature -->
-    <string name="prox_auto_answer_incall_only_title">Auto answer in call only</string>
+    <string name="prox_auto_answer_incall_only_title">Auto answer</string>
     <string name="prox_auto_answer_incall_only_summary">Use proximity sensor for autoanswer</string>
 
-    <string name="auto_answer_call_title">Auto answer</string>
-    <string name="auto_answer_call_summary">Automatically answer incoming call when connected via BT or Wired headset</string>
-    <string name="auto_answer_delay_title">Auto answer delay</string>
-    <string name="auto_answer_dialog_title">Specify delay in (ms)</string>
-    <string name="auto_answer_delay_summary">Auto answer will be activated in <xliff:g id="number">%d</xliff:g> ms</string>
+    <string name="auto_answer_call_title">Autoanswer</string>
+    <string name="auto_answer_call_summary">Use autoanswer with connected BT or Wired headset</string>
+    <string name="auto_answer_delay_title">Autoanswer delay</string>
+    <string name="auto_answer_dialog_title">Autoanswer delay in (ms)</string>
+    <string name="auto_answer_delay_summary">Autoanswer will be activated in <xliff:g id="number">%d</xliff:g> ms</string>
 
 </resources>
